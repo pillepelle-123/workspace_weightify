@@ -1,0 +1,60 @@
+Build a Node.js + Express app named "Weightify" that uses the Spotify Web API to create dynamically weighted playlists ("Weightlists") with the following features:
+
+### Core Requirements (not pre-installed yet, please instruct me in that)
+1. **Tech Stack**:
+   - Backend: Node.js + Express
+   - Spotify API: spotify-web-api-node
+   - Time calculations: date-fns
+   - Authentication: OAuth 2.0 (Authorization Code Flow) using .env (via dotenv)
+   - Logging: winston
+   - Caching: node-cache
+	- Crossfade: Howler.js or react-native-track-player (which is suiting better?)
+
+2. **Key Features**:
+   - **Weightlists**:
+     - Combine multiple Spotify playlists into one Weightlist
+     - Assign percentage weights to each source playlist to define the probability with which a song from a playlist is played
+       - example: 50% Playlist A, 25% Playlist B, 25% Playlist C -> in the example the probability that a song from Playlist A is played is twice as high as from the other two playlists
+     - Validate total weights sum to 100% before playback
+   - **Playback Modes**:
+     - Default: Play songs in original playlist order
+     - Shuffle: Play songs in random playlist order
+     - Repeat: Options: "entire_weightlist" or "single_song"
+     - Single Playlist Mode: Play only from one source playlist
+	  - Crossfade: Preload and crossfade the next track (user input: seconds from 0 to 15)
+   - **Track Management**:
+     - Mark played tracks per session (no repeats until reset)
+     - UI: Gray out played tracks; allow manual "unplayed" reset by user
+   - **Dynamic Weight Adjustments**:
+     - Schedule weight changes over time (e.g., after 90 minutes)
+       - example:
+		   1) Time 0: 50% Playlist A, 25% Playlist B, 25% Playlist C 
+		   2) Time 0: 25% Playlist A, 0% Playlist B, 75% Playlist C 
+		   3) Time 0: 0% Playlist A, 0% Playlist B, 100% Playlist C 	 
+3. **API Endpoints**:
+   - POST /weightlists - Create new Weightlist
+   - PUT /weightlists/:id/weights - Update weights (validate sum=100%)
+   - GET /weightlists/:id/play - Get next track (weighted)
+   - GET /weightlists/:id/tracks - List all tracks (mark played/unplayed)
+   - PUT /weightlists/:id/reset - Reset playback session
+
+4. **Data Models**:
+interface Weightlist {
+  id: string;
+  name: string;
+  userId: string;
+  sourcePlaylists: {
+    playlistId: string;
+    weight: number;
+  }[];
+  scheduledWeightChanges?: {
+    afterMinutes: number;
+    newWeights: { playlistId: string; weight: number }[];
+  }[];
+}
+
+interface Track {
+  id: string;
+  weightlistId: string;
+  isPlayed: boolean;
+}
