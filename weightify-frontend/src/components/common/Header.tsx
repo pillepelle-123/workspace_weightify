@@ -2,6 +2,7 @@ import React from 'react';
 import { AppBar, Toolbar, Typography, Button, Avatar, Box } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import WeightifyLogo from './WeightifyLogo';
 
 const Header: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -9,11 +10,11 @@ const Header: React.FC = () => {
   return (
     <AppBar position="static">
       <Toolbar>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          <RouterLink to="/" style={{ color: 'white', textDecoration: 'none' }}>
-            Weightify
+        <Box sx={{ flexGrow: 1 }}>
+          <RouterLink to="/" style={{ display: 'inline-block' }}>
+            <WeightifyLogo />
           </RouterLink>
-        </Typography>
+        </Box>
         
         {isAuthenticated ? (
           <>
