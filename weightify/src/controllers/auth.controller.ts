@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import spotifyService from '../services/spotify.service';
 import logger from '../utils/logger';
+import User from '../models/user.model';
 
 export const getLoginUrl = (req: Request, res: Response) => {
   try {
@@ -22,12 +23,24 @@ export const handleCallback = async (req: Request, res: Response) => {
   try {
     const tokens = await spotifyService.handleCallback(code);
     
-    // Store tokens in session
-    req.session.accessToken = tokens.accessToken;
-    req.session.refreshToken = tokens.refreshToken;
-    
     // Get user profile
     const userProfile = await spotifyService.getUserProfile(tokens.accessToken);
+    
+    // Store/update user in database
+    await User.findOneAndUpdate(
+      { spotifyId: userProfile.id },
+      {
+        spotifyId: userProfile.id,
+        email: userProfile.email,
+        displayName: userProfile.display_name,
+        refreshToken: tokens.refreshToken,
+        accessToken: tokens.accessToken,
+        tokenExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000)
+      },
+      { upsert: true, new: true }
+    );
+    
+    // Store minimal data in session
     req.session.userId = userProfile.id;
     
     // Redirect to frontend with user data
@@ -62,6 +75,22 @@ export const getCurrentUser = async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Error fetching user profile:', error);
     res.status(500).json({ error: 'Failed to fetch user profile' });
+  }
+};
+
+export const validateToken = async (req: Request, res: Response) => {
+  const accessToken = (req as any).accessToken;
+  
+  try {
+    const user = await spotifyService.getUserProfile(accessToken);
+    res.json({ 
+      user,
+      accessToken,
+      valid: true
+    });
+  } catch (error) {
+    logger.error('Token validation error:', error);
+    res.status(401).json({ error: 'Invalid token' });
   }
 };
 

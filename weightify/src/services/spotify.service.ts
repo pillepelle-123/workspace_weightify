@@ -83,8 +83,11 @@ async getPlaylistTracks(accessToken: string, playlistId: string): Promise<any> {
         id: item.track.id,
         name: item.track.name,
         uri: item.track.uri,
-        artists: item.track.artists.map(artist => artist.name).join(', '),
-        album: item.track.album.name,
+        artists: item.track.artists,
+        album: {
+          name: item.track.album.name,
+          images: item.track.album.images
+        },
         duration_ms: item.track.duration_ms,
         playlistId
       };

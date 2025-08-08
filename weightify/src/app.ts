@@ -4,6 +4,7 @@ import session from 'express-session';
 import cors from 'cors';
 import authRoutes from './routes/auth.routes';
 import weightlistRoutes from './routes/weightlist.routes';
+import tracksRoutes from './routes/tracks.routes';
 import { errorHandler } from './middleware/error.middleware';
 import { requestLogger } from './middleware/logger.middleware';
 
@@ -43,6 +44,7 @@ app.use((req, res, next) => {
 // Routes
 app.use('/auth', authRoutes);
 app.use('/api/weightlists', weightlistRoutes);
+app.use('/api/tracks', tracksRoutes);
 
 // Welcome route
 app.get('/', (req, res) => {

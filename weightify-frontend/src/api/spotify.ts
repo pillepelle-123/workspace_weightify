@@ -13,16 +13,32 @@ const spotifyApi = axios.create({
 // Add request interceptor to include auth token
 spotifyApi.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
-  ////console.log('API Request - Token from localStorage:', token);
-  //console.log('API Request - URL:', config.url);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-    //console.log('API Request - Authorization header set');
-  } else {
-    //console.log('API Request - No token found in localStorage');
   }
   return config;
 });
+
+// Add response interceptor to handle token refresh
+spotifyApi.interceptors.response.use(
+  (response) => {
+    // Check if server provided a new token
+    const newToken = response.headers['x-new-access-token'];
+    if (newToken) {
+      localStorage.setItem('accessToken', newToken);
+    }
+    return response;
+  },
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Token expired, redirect to login
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const getLoginUrl = async (): Promise<string> => {
   const response = await spotifyApi.get('/auth/login');

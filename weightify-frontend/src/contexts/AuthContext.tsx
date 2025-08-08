@@ -60,21 +60,55 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   useEffect(() => {
-    // Check if user is already logged in
-    const accessToken = localStorage.getItem('accessToken');
-    const user = localStorage.getItem('user');
+    const validateAndLoadAuth = async () => {
+      const accessToken = localStorage.getItem('accessToken');
+      const user = localStorage.getItem('user');
 
-    if (accessToken && user) {
-      dispatch({ 
-        type: 'LOGIN_SUCCESS', 
-        payload: { 
-          accessToken, 
-          user: JSON.parse(user) 
-        } 
-      });
-    } else {
-      dispatch({ type: 'AUTH_LOADED' });
-    }
+      if (accessToken && user) {
+        try {
+          // Validate token by making a test API call
+          const response = await fetch('http://localhost:3000/auth/validate', {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            },
+            credentials: 'include'
+          });
+
+          if (response.ok) {
+            // Check for new token in response headers
+            const newToken = response.headers.get('x-new-access-token');
+            const finalToken = newToken || accessToken;
+            
+            if (newToken) {
+              localStorage.setItem('accessToken', newToken);
+            }
+            
+            dispatch({ 
+              type: 'LOGIN_SUCCESS', 
+              payload: { 
+                accessToken: finalToken, 
+                user: JSON.parse(user) 
+              } 
+            });
+          } else {
+            // Token invalid, clear storage and set loading to false
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('user');
+            dispatch({ type: 'AUTH_LOADED' });
+          }
+        } catch (error) {
+          // Network error or token validation failed, clear storage
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('user');
+          dispatch({ type: 'AUTH_LOADED' });
+        }
+      } else {
+        // No stored credentials, set loading to false
+        dispatch({ type: 'AUTH_LOADED' });
+      }
+    };
+
+    validateAndLoadAuth();
   }, []);
 
   const login = (accessToken: string, user: User) => {

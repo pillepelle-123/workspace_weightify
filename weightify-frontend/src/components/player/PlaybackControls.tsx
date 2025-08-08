@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Typography, 
@@ -19,6 +19,7 @@ import RepeatOneIcon from '@mui/icons-material/RepeatOne';
 import ShuffleIcon from '@mui/icons-material/Shuffle';
 import { usePlayer } from '../../hooks/usePlayer';
 import { resetPlayback } from '../../api/weightlist';
+import { getTrackAlbumCover } from '../../api/weightlist';
 
 const PlaybackControls: React.FC = () => {
   const { 
@@ -36,6 +37,7 @@ const PlaybackControls: React.FC = () => {
   } = usePlayer();
   
   const [loading, setLoading] = useState(false);
+  const [albumCoverUrl, setAlbumCoverUrl] = useState<string | null>(null);
   
   const handleResetPlayback = async () => {
     if (!currentWeightlist || !sessionId) return;
@@ -55,6 +57,23 @@ const PlaybackControls: React.FC = () => {
   const handleCrossfadeChange = (_event: Event, value: number | number[]) => {
     setCrossfadeDuration(value as number);
   };
+
+  // Fetch album cover when track changes
+  useEffect(() => {
+    const fetchAlbumCover = async () => {
+      if (currentTrack?.id) {
+        try {
+          const coverUrl = await getTrackAlbumCover(currentTrack.id);
+          setAlbumCoverUrl(coverUrl);
+        } catch (error) {
+          console.error('Failed to fetch album cover:', error);
+          setAlbumCoverUrl(null);
+        }
+      }
+    };
+
+    fetchAlbumCover();
+  }, [currentTrack?.id]);
   
   if (!currentTrack || !currentWeightlist) {
     return (
@@ -75,7 +94,7 @@ const PlaybackControls: React.FC = () => {
           <CardMedia
             component="img"
             height="300"
-            image={currentTrack.album?.images[0]?.url || '/placeholder.png'}
+            image={albumCoverUrl || currentTrack.album?.images?.[0]?.url || '/placeholder.png'}
             alt={currentTrack.album?.name}
           />
           <CardContent>
