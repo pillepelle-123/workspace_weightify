@@ -9,6 +9,7 @@ interface PlayerContextType extends PlaybackState {
   pauseTrack: () => void;
   resumeTrack: () => void;
   nextTrack: () => Promise<void>;
+  previousTrack: () => void;
   resetPlayback: () => Promise<void>;
   setCurrentWeightlist: (weightlist: Weightlist, sessionId: string) => void;
   setCrossfadeDuration: (duration: number) => void;
@@ -23,7 +24,8 @@ const initialState: PlaybackState = {
   currentWeightlist: null,
   sessionId: null,
   crossfadeDuration: 0,
-  playedTracks: []
+  playedTracks: [],
+  trackHistory: []
 };
 
 type PlayerAction = 
@@ -34,7 +36,8 @@ type PlayerAction =
   | { type: 'SET_WEIGHTLIST'; payload: { weightlist: Weightlist; sessionId: string } }
   | { type: 'SET_CROSSFADE'; payload: number }
   | { type: 'MARK_PLAYED'; payload: string }
-  | { type: 'RESET_PLAYED' };
+  | { type: 'RESET_PLAYED' }
+  | { type: 'ADD_TO_HISTORY'; payload: SpotifyTrack };
 
 const playerReducer = (state: PlaybackState, action: PlayerAction): PlaybackState => {
   switch (action.type) {
@@ -79,7 +82,13 @@ const playerReducer = (state: PlaybackState, action: PlayerAction): PlaybackStat
     case 'RESET_PLAYED':
       return {
         ...state,
-        playedTracks: []
+        playedTracks: [],
+        trackHistory: []
+      };
+    case 'ADD_TO_HISTORY':
+      return {
+        ...state,
+        trackHistory: [...state.trackHistory, action.payload].slice(-10) // Keep last 10 tracks
       };
     default:
       return state;
@@ -92,6 +101,7 @@ export const PlayerContext = createContext<PlayerContextType>({
   pauseTrack: () => {},
   resumeTrack: () => {},
   nextTrack: async () => {},
+  previousTrack: () => {},
   resetPlayback: async () => {},
   setCurrentWeightlist: () => {},
   setCrossfadeDuration: () => {},
@@ -129,6 +139,9 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   playbackService.setVolume(state.volume / 100); // Convert to 0-1 range
 
   const playTrack = (track: SpotifyTrack) => {
+    if (state.currentTrack) {
+      dispatch({ type: 'ADD_TO_HISTORY', payload: state.currentTrack });
+    }
     playbackService.play(track);
     dispatch({ type: 'SET_TRACK', payload: track });
     dispatch({ type: 'MARK_PLAYED', payload: track.id });
@@ -161,6 +174,17 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
     } catch (error) {
       console.error('Error getting next track:', error);
+    }
+  };
+
+  const previousTrack = () => {
+    if (state.trackHistory.length > 0) {
+      const lastTrack = state.trackHistory[state.trackHistory.length - 1];
+      
+      playbackService.play(lastTrack);
+      dispatch({ type: 'SET_TRACK', payload: lastTrack });
+      // Remove the last track from history without adding current track back
+      dispatch({ type: 'ADD_TO_HISTORY', payload: state.currentTrack! });
     }
   };
 
@@ -202,6 +226,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       pauseTrack,
       resumeTrack,
       nextTrack,
+      previousTrack,
       resetPlayback,
       setCurrentWeightlist,
       setCrossfadeDuration,

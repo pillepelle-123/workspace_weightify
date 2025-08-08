@@ -14,6 +14,7 @@ import {
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
+import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import RepeatIcon from '@mui/icons-material/Repeat';
 import RepeatOneIcon from '@mui/icons-material/RepeatOne';
 import ShuffleIcon from '@mui/icons-material/Shuffle';
@@ -28,12 +29,14 @@ const PlaybackControls: React.FC = () => {
     volume, 
     pauseTrack, 
     resumeTrack, 
-    nextTrack, 
+    nextTrack,
+    previousTrack, 
     setVolume,
     currentWeightlist,
     sessionId,
     crossfadeDuration,
-    setCrossfadeDuration
+    setCrossfadeDuration,
+    trackHistory
   } = usePlayer();
   
   const [loading, setLoading] = useState(false);
@@ -123,6 +126,16 @@ const PlaybackControls: React.FC = () => {
               justifyContent: 'center',
               my: 3
             }}>
+              <IconButton 
+                onClick={previousTrack}
+                color="primary"
+                size="large"
+                sx={{ mx: 1 }}
+                disabled={trackHistory.length === 0}
+              >
+                <SkipPreviousIcon fontSize="large" />
+              </IconButton>
+              
               <IconButton 
                 onClick={isPlaying ? pauseTrack : resumeTrack}
                 color="primary"

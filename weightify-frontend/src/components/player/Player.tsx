@@ -11,6 +11,7 @@ import {
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
+import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import VolumeDownIcon from '@mui/icons-material/VolumeDown';
 import { usePlayer } from '../../hooks/usePlayer';
@@ -29,8 +30,10 @@ const Player: React.FC = () => {
     volume, 
     pauseTrack, 
     resumeTrack, 
-    nextTrack, 
-    setVolume 
+    nextTrack,
+    previousTrack, 
+    setVolume,
+    trackHistory 
   } = usePlayer();
   
   const [albumCoverUrl, setAlbumCoverUrl] = useState<string | null>(null);
@@ -113,6 +116,15 @@ const Player: React.FC = () => {
         </Box>
         
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton 
+            onClick={previousTrack}
+            color="primary"
+            size="large"
+            disabled={trackHistory.length === 0}
+          >
+            <SkipPreviousIcon />
+          </IconButton>
+          
           <IconButton 
             onClick={isPlaying ? pauseTrack : resumeTrack}
             color="primary"
