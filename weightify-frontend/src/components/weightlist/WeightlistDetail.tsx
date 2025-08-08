@@ -289,7 +289,7 @@ const WeightlistDetail: React.FC = () => {
       
       {playbackStarted && (
         <>
-          <Player />
+          {/* <Player /> */}
           
           <Paper elevation={3} sx={{ mb: 3 }}>
             <Tabs 
