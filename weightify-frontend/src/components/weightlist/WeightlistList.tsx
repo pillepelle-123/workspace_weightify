@@ -72,7 +72,7 @@ const WeightlistList: React.FC = () => {
           variant="contained" 
           color="primary"
         >
-          Create New Weightlist
+          New Weightlist
         </Button>
       </Box>
       

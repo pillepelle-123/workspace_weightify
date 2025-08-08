@@ -1,11 +1,21 @@
-import React from 'react';
-import { AppBar, Toolbar, Typography, Button, Avatar, Box } from '@mui/material';
+import React, { useState } from 'react';
+import { AppBar, Toolbar, Typography, Button, Avatar, Box, Menu, MenuItem, IconButton } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import WeightifyLogo from './WeightifyLogo';
+import WeightlistIcon from './WeightlistIcon';
 
 const Header: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuth();
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+  
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
   
   return (
     <AppBar position="static">
@@ -18,12 +28,26 @@ const Header: React.FC = () => {
         
         {isAuthenticated ? (
           <>
-            <Button color="inherit" component={RouterLink} to="/weightlists">
-              My Weightlists
-            </Button>
-            <Button color="inherit" component={RouterLink} to="/weightlists/new">
-              Create New
-            </Button>
+            <IconButton
+              color="inherit"
+              onClick={handleMenuOpen}
+              sx={{ mr: 2 }}
+            >
+              <WeightlistIcon />
+            </IconButton>
+            
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleMenuClose}
+            >
+              <MenuItem component={RouterLink} to="/weightlists" onClick={handleMenuClose}>
+                My Weightlists
+              </MenuItem>
+              <MenuItem component={RouterLink} to="/weightlists/new" onClick={handleMenuClose}>
+                New Weightlist
+              </MenuItem>
+            </Menu>
             <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
               {user?.images && user.images.length > 0 && (
                 <Avatar 

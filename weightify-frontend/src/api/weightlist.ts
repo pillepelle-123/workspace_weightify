@@ -62,3 +62,7 @@ export const getTrackAlbumCover = async (trackId: string): Promise<string | null
   const response = await spotifyApi.get(`/api/tracks/${trackId}/album-cover`);
   return response.data.albumCoverUrl;
 };
+
+export const deleteWeightlist = async (id: string): Promise<void> => {
+  await spotifyApi.delete(`/api/weightlists/${id}`);
+};

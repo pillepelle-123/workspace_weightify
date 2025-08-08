@@ -19,7 +19,7 @@ import PlaylistSelector from '../playlist/PlaylistSelector';
 import PlaylistWeight from '../playlist/PlaylistWeight';
 import { SpotifyPlaylist, SourcePlaylist } from '../../types';
 import { getUserPlaylists } from '../../api/spotify';
-import { createWeightlist, getWeightlist, updateWeightlist } from '../../api/weightlist';
+import { createWeightlist, getWeightlist, updateWeightlist, deleteWeightlist } from '../../api/weightlist';
 
 const WeightlistForm: React.FC = () => {
   const navigate = useNavigate();
@@ -37,6 +37,7 @@ const WeightlistForm: React.FC = () => {
   const [totalWeight, setTotalWeight] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   // Load playlist details and existing weightlist data
   useEffect(() => {
@@ -208,11 +209,26 @@ const WeightlistForm: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const handleDelete = async () => {
+    if (!id) return;
+    
+    try {
+      setLoading(true);
+      await deleteWeightlist(id);
+      navigate('/weightlists');
+    } catch (err) {
+      console.error('Failed to delete weightlist:', err);
+      setError('Failed to delete weightlist');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ mb: 4 }}>
       <Typography variant="h4" gutterBottom>
-        {isEditMode ? 'Edit Weightlist' : 'Create New Weightlist'}
+        {isEditMode ? 'Edit Weightlist' : 'New Weightlist'}
       </Typography>
       
       {error && (
@@ -365,23 +381,54 @@ const WeightlistForm: React.FC = () => {
         </Paper>
       )}
       
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-        <Button 
-          variant="outlined" 
-          color="inherit" 
-          onClick={() => navigate('/weightlists')}
-          sx={{ mr: 2 }}
-        >
-          Cancel
-        </Button>
-        <Button 
-          type="submit" 
-          variant="contained" 
-          color="primary"
-          disabled={loading || sourcePlaylists.length === 0 || Math.abs(totalWeight - 100) > 1}
-        >
-          {isEditMode ? 'Update Weightlist' : 'Create Weightlist'}
-        </Button>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+        {isEditMode && (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button 
+              variant="outlined" 
+              color="error"
+              onClick={() => showDeleteConfirm ? handleDelete() : setShowDeleteConfirm(true)}
+              disabled={loading}
+              sx={showDeleteConfirm ? {
+                '&:hover': {
+                  backgroundColor: 'error.main',
+                  color: '#fff'
+                }
+              } : {}}
+            >
+              {showDeleteConfirm ? 'Confirm Deletion' : 'Delete Weightlist'}
+            </Button>
+            {showDeleteConfirm && (
+              <Button 
+                variant="outlined" 
+                color="inherit"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={loading}
+              >
+                Cancel Deletion
+              </Button>
+            )}
+          </Box>
+        )}
+        
+        <Box sx={{ display: 'flex' }}>
+          <Button 
+            variant="outlined" 
+            color="inherit" 
+            onClick={() => navigate('/weightlists')}
+            sx={{ mr: 2 }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="submit" 
+            variant="contained" 
+            color="primary"
+            disabled={loading || sourcePlaylists.length === 0 || Math.abs(totalWeight - 100) > 1}
+          >
+            {isEditMode ? 'Update Weightlist' : 'Create Weightlist'}
+          </Button>
+        </Box>
       </Box>
     </Box>
   );

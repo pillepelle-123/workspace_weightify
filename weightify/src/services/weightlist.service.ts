@@ -116,6 +116,7 @@ class WeightlistService {
         album: track.album || {},
         artistNames: typeof track.artists === 'string' ? track.artists : (track.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist'),
         albumName: typeof track.album === 'string' ? track.album : (track.album?.name || 'Unknown Album'),
+        albumCoverUrl: (typeof track.album === 'object' && track.album?.images?.[0]?.url) || '',
         duration_ms: track.duration_ms || 0,
         weightlistId: weightlist._id,
         playlistId: sourcePlaylist.playlistId,
@@ -368,7 +369,10 @@ class WeightlistService {
         name: track.name,
         uri: track.uri,
         artists: [{ name: track.artistNames || 'Unknown Artist' }],
-        album: { name: track.albumName || 'Unknown Album' },
+        album: { 
+          name: track.albumName || 'Unknown Album',
+          images: track.albumCoverUrl ? [{ url: track.albumCoverUrl }] : []
+        },
         duration_ms: track.duration_ms || 0,
         isPlayed: track.isPlayed,
         playlistId: track.playlistId,

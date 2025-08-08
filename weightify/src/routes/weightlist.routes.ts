@@ -7,7 +7,8 @@ import {
   getNextTrack,
   listTracks,
   resetPlayback,
-  getUserWeightlists
+  getUserWeightlists,
+  deleteWeightlist
 } from '../controllers/weightlist.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import spotifyService from '../services/spotify.service';
@@ -26,6 +27,7 @@ router.get('/:id/play', getNextTrack);
 router.get('/:id/tracks', listTracks);
 router.put('/:id/reset', resetPlayback);
 router.get('/', getUserWeightlists);
+router.delete('/:id', deleteWeightlist);
 
 
 

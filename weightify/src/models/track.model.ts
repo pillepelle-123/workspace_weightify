@@ -8,6 +8,7 @@ export interface ITrack extends Document {
   album: any;
   artistNames: string;
   albumName: string;
+  albumCoverUrl: string;
   duration_ms: number;
   weightlistId: string;
   playlistId: string;
@@ -23,6 +24,7 @@ const trackSchema = new Schema<ITrack>({
   album: Schema.Types.Mixed,
   artistNames: { type: String, default: '' },
   albumName: { type: String, default: '' },
+  albumCoverUrl: { type: String, default: '' },
   duration_ms: { type: Number, default: 0 },
   weightlistId: { type: String, required: true },
   playlistId: { type: String, required: true },

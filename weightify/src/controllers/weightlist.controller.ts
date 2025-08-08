@@ -199,3 +199,28 @@ export const getUserWeightlists = async (req: Request, res: Response) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+export const deleteWeightlist = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const accessToken = (req as any).accessToken;
+    
+    if (!accessToken) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    const userProfile = await spotifyService.getUserProfile(accessToken);
+    const userId = userProfile.id;
+    
+    const weightlist = await Weightlist.findOneAndDelete({ _id: id, userId });
+    
+    if (!weightlist) {
+      return res.status(404).json({ error: 'Weightlist not found' });
+    }
+    
+    res.json({ success: true, message: 'Weightlist deleted successfully' });
+  } catch (error: any) {
+    logger.error('Error deleting weightlist:', error);
+    res.status(400).json({ error: error.message });
+  }
+};

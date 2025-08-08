@@ -9,9 +9,9 @@ import {
   Divider,
   CircularProgress,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Avatar
 } from '@mui/material';
-import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import SearchIcon from '@mui/icons-material/Search';
 import { getTracks } from '../../api/weightlist';
 import { WeightlistTrack } from '../../types';
@@ -129,7 +129,16 @@ const TrackList: React.FC<TrackListProps> = ({ weightlistId, sessionId }) => {
                 }}
               >
                 <ListItemIcon>
-                  <MusicNoteIcon color={played ? 'disabled' : 'primary'} />
+                  <Avatar
+                    src={track.album?.images?.[0]?.url}
+                    variant="rounded"
+                    sx={{ 
+                      width: 60, 
+                      height: 60,
+                      opacity: played ? 0.6 : 1,
+                      mr: 2
+                    }}
+                  />
                 </ListItemIcon>
                 <ListItemText
                   primary={track.name || 'Unknown Track'}
