@@ -15,6 +15,7 @@ import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { usePlayer } from '../../hooks/usePlayer';
 import { getTrackAlbumCover } from '../../api/weightlist';
+import ProgressBar from './ProgressBar';
 
 const MiniPlayer: React.FC = () => {
   const { 
@@ -26,7 +27,10 @@ const MiniPlayer: React.FC = () => {
     nextTrack,
     previousTrack,
     setVolume,
-    trackHistory
+    trackHistory,
+    currentPosition,
+    duration,
+    seekTo
   } = usePlayer();
   
   const [albumCoverUrl, setAlbumCoverUrl] = useState<string | null>(null);
@@ -92,6 +96,14 @@ const MiniPlayer: React.FC = () => {
         <Typography variant="body2" color="text.secondary" noWrap>
           {currentTrack.artists?.map(a => a.name).join(', ')}
         </Typography>
+        <Box sx={{ mt: 0.5 }}>
+          <ProgressBar 
+            currentPosition={currentPosition}
+            duration={duration}
+            size="small"
+            onSeek={seekTo}
+          />
+        </Box>
       </Box>
       
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

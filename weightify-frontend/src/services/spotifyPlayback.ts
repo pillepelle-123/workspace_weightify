@@ -159,6 +159,12 @@ class SpotifyPlaybackService {
     }
   }
 
+  async seek(positionMs: number) {
+    if (this.player) {
+      await this.player.seek(positionMs);
+    }
+  }
+
   disconnect() {
     if (this.player) {
       this.player.disconnect();

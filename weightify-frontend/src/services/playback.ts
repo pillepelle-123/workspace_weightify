@@ -76,6 +76,10 @@ class PlaybackService {
     await this.spotifyPlayer.stop();
   }
 
+  async seek(positionMs: number) {
+    await this.spotifyPlayer.seek(positionMs);
+  }
+
   disconnect() {
     this.spotifyPlayer.disconnect();
   }

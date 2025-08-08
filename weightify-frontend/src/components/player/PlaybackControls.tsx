@@ -21,6 +21,7 @@ import ShuffleIcon from '@mui/icons-material/Shuffle';
 import { usePlayer } from '../../hooks/usePlayer';
 import { resetPlayback } from '../../api/weightlist';
 import { getTrackAlbumCover } from '../../api/weightlist';
+import ProgressBar from './ProgressBar';
 
 const PlaybackControls: React.FC = () => {
   const { 
@@ -36,7 +37,10 @@ const PlaybackControls: React.FC = () => {
     sessionId,
     crossfadeDuration,
     setCrossfadeDuration,
-    trackHistory
+    trackHistory,
+    currentPosition,
+    duration,
+    seekTo
   } = usePlayer();
   
   const [loading, setLoading] = useState(false);
@@ -156,6 +160,14 @@ const PlaybackControls: React.FC = () => {
               >
                 <SkipNextIcon fontSize="large" />
               </IconButton>
+            </Box>
+            
+            <Box sx={{ mb: 3 }}>
+              <ProgressBar 
+                currentPosition={currentPosition}
+                duration={duration}
+                onSeek={seekTo}
+              />
             </Box>
             
             <Box sx={{ mb: 3 }}>

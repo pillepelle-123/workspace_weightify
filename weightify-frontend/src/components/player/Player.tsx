@@ -16,6 +16,7 @@ import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import VolumeDownIcon from '@mui/icons-material/VolumeDown';
 import { usePlayer } from '../../hooks/usePlayer';
 import { getTrackAlbumCover } from '../../api/weightlist';
+import ProgressBar from './ProgressBar';
 
 const formatDuration = (ms: number) => {
   const minutes = Math.floor(ms / 60000);
@@ -33,7 +34,10 @@ const Player: React.FC = () => {
     nextTrack,
     previousTrack, 
     setVolume,
-    trackHistory 
+    trackHistory,
+    currentPosition,
+    duration,
+    seekTo 
   } = usePlayer();
   
   const [albumCoverUrl, setAlbumCoverUrl] = useState<string | null>(null);
@@ -154,6 +158,15 @@ const Player: React.FC = () => {
           />
           <VolumeUpIcon sx={{ ml: 1 }} />
         </Box>
+      </Box>
+      
+      <Box sx={{ mt: 1 }}>
+        <ProgressBar 
+          currentPosition={currentPosition}
+          duration={duration}
+          size="small"
+          onSeek={seekTo}
+        />
       </Box>
     </Paper>
   );

@@ -15,6 +15,7 @@ interface PlayerContextType extends PlaybackState {
   setCrossfadeDuration: (duration: number) => void;
   setVolume: (volume: number) => void;
   stopPlayback: () => void;
+  seekTo: (position: number) => void;
 }
 
 const initialState: PlaybackState = {
@@ -25,7 +26,9 @@ const initialState: PlaybackState = {
   sessionId: null,
   crossfadeDuration: 0,
   playedTracks: [],
-  trackHistory: []
+  trackHistory: [],
+  currentPosition: 0,
+  duration: 0
 };
 
 type PlayerAction = 
@@ -37,7 +40,8 @@ type PlayerAction =
   | { type: 'SET_CROSSFADE'; payload: number }
   | { type: 'MARK_PLAYED'; payload: string }
   | { type: 'RESET_PLAYED' }
-  | { type: 'ADD_TO_HISTORY'; payload: SpotifyTrack };
+  | { type: 'ADD_TO_HISTORY'; payload: SpotifyTrack }
+  | { type: 'UPDATE_PROGRESS'; payload: number };
 
 const playerReducer = (state: PlaybackState, action: PlayerAction): PlaybackState => {
   switch (action.type) {
@@ -45,7 +49,9 @@ const playerReducer = (state: PlaybackState, action: PlayerAction): PlaybackStat
       return {
         ...state,
         currentTrack: action.payload,
-        isPlaying: true
+        isPlaying: true,
+        currentPosition: 0,
+        duration: action.payload.duration_ms || 0
       };
     case 'PLAY':
       return {
@@ -90,6 +96,11 @@ const playerReducer = (state: PlaybackState, action: PlayerAction): PlaybackStat
         ...state,
         trackHistory: [...state.trackHistory, action.payload].slice(-10) // Keep last 10 tracks
       };
+    case 'UPDATE_PROGRESS':
+      return {
+        ...state,
+        currentPosition: action.payload
+      };
     default:
       return state;
   }
@@ -106,7 +117,8 @@ export const PlayerContext = createContext<PlayerContextType>({
   setCurrentWeightlist: () => {},
   setCrossfadeDuration: () => {},
   setVolume: () => {},
-  stopPlayback: () => {}
+  stopPlayback: () => {},
+  seekTo: () => {}
 });
 
 // Create singleton playback service
@@ -133,6 +145,20 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       nextTrack();
     });
   }, []);
+
+  // Update progress every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (state.isPlaying && state.currentTrack) {
+        dispatch({
+          type: 'UPDATE_PROGRESS',
+          payload: Math.min(state.currentPosition + 1000, state.duration)
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [state.isPlaying, state.currentPosition, state.duration]);
 
   // Set up playback service with initial state
   playbackService.setCrossfadeDuration(state.crossfadeDuration);
@@ -219,6 +245,11 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     dispatch({ type: 'SET_VOLUME', payload: volume });
   };
 
+  const seekTo = (position: number) => {
+    dispatch({ type: 'UPDATE_PROGRESS', payload: position });
+    playbackService.seek(position);
+  };
+
   return (
     <PlayerContext.Provider value={{
       ...state,
@@ -231,7 +262,8 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       setCurrentWeightlist,
       setCrossfadeDuration,
       setVolume,
-      stopPlayback
+      stopPlayback,
+      seekTo
     }}>
       {children}
     </PlayerContext.Provider>

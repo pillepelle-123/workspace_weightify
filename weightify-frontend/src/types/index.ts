@@ -79,4 +79,6 @@ export interface PlaybackState {
   crossfadeDuration: number;
   playedTracks: string[];
   trackHistory: SpotifyTrack[];
+  currentPosition: number;
+  duration: number;
 }
