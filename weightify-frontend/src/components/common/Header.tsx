@@ -1,20 +1,30 @@
 import React, { useState } from 'react';
 import { AppBar, Toolbar, Typography, Button, Avatar, Box, Menu, MenuItem, IconButton } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
+import { AccountTree } from '@mui/icons-material';
 import { useAuth } from '../../hooks/useAuth';
 import WeightifyLogo from './WeightifyLogo';
 import WeightlistIcon from './WeightlistIcon';
 
 const Header: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuth();
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [weightlistAnchorEl, setWeightlistAnchorEl] = useState<null | HTMLElement>(null);
+  const [weightflowAnchorEl, setWeightflowAnchorEl] = useState<null | HTMLElement>(null);
   
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
+  const handleWeightlistMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setWeightlistAnchorEl(event.currentTarget);
   };
   
-  const handleMenuClose = () => {
-    setAnchorEl(null);
+  const handleWeightlistMenuClose = () => {
+    setWeightlistAnchorEl(null);
+  };
+  
+  const handleWeightflowMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setWeightflowAnchorEl(event.currentTarget);
+  };
+  
+  const handleWeightflowMenuClose = () => {
+    setWeightflowAnchorEl(null);
   };
   
   return (
@@ -30,22 +40,43 @@ const Header: React.FC = () => {
           <>
             <IconButton
               color="inherit"
-              onClick={handleMenuOpen}
-              sx={{ mr: 2 }}
+              onClick={handleWeightlistMenuOpen}
+              sx={{ mr: 1 }}
             >
               <WeightlistIcon />
             </IconButton>
             
             <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleMenuClose}
+              anchorEl={weightlistAnchorEl}
+              open={Boolean(weightlistAnchorEl)}
+              onClose={handleWeightlistMenuClose}
             >
-              <MenuItem component={RouterLink} to="/weightlists" onClick={handleMenuClose}>
+              <MenuItem component={RouterLink} to="/weightlists" onClick={handleWeightlistMenuClose}>
                 My Weightlists
               </MenuItem>
-              <MenuItem component={RouterLink} to="/weightlists/new" onClick={handleMenuClose}>
+              <MenuItem component={RouterLink} to="/weightlists/new" onClick={handleWeightlistMenuClose}>
                 New Weightlist
+              </MenuItem>
+            </Menu>
+            
+            <IconButton
+              color="inherit"
+              onClick={handleWeightflowMenuOpen}
+              sx={{ mr: 2 }}
+            >
+              <AccountTree />
+            </IconButton>
+            
+            <Menu
+              anchorEl={weightflowAnchorEl}
+              open={Boolean(weightflowAnchorEl)}
+              onClose={handleWeightflowMenuClose}
+            >
+              <MenuItem component={RouterLink} to="/weightflows" onClick={handleWeightflowMenuClose}>
+                My Weightflows
+              </MenuItem>
+              <MenuItem component={RouterLink} to="/weightflows/new" onClick={handleWeightflowMenuClose}>
+                New Weightflow
               </MenuItem>
             </Menu>
             <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>

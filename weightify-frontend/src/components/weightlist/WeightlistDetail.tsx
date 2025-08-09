@@ -50,19 +50,45 @@ const TabPanel = (props: TabPanelProps) => {
   );
 };
 
-const WeightlistDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+interface WeightlistDetailProps {
+  weightlistId?: string;
+  embedded?: boolean;
+  sessionId?: string;
+}
+
+const WeightlistDetail: React.FC<WeightlistDetailProps> = ({ 
+  weightlistId: propWeightlistId, 
+  embedded = false, 
+  sessionId: propSessionId 
+}) => {
+  const { id: paramId } = useParams<{ id: string }>();
+  const id = propWeightlistId || paramId;
   const navigate = useNavigate();
   const { weightlist, loading, error } = useSingleWeightlist(id || '');
   const player = usePlayer();
   
   const [tabValue, setTabValue] = useState(0);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [playbackStarted, setPlaybackStarted] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(propSessionId || null);
+  const [playbackStarted, setPlaybackStarted] = useState(embedded && propSessionId ? true : false);
+
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   
 
   const [playlistNames, setPlaylistNames] = useState<Record<string, string>>({});
+  
+  // Auto-start playback for embedded mode
+  useEffect(() => {
+    if (embedded && propSessionId && weightlist && !playbackStarted) {
+      const firstTrack = (window as any).weightflowFirstTrack;
+      if (firstTrack) {
+        player.setCurrentWeightlist(weightlist, propSessionId);
+        player.playTrack(firstTrack);
+        setPlaybackStarted(true);
+        // Clean up
+        delete (window as any).weightflowFirstTrack;
+      }
+    }
+  }, [embedded, propSessionId, weightlist, playbackStarted, player]);
   
   // Preload tracks in background
   useEffect(() => {
@@ -145,28 +171,30 @@ const WeightlistDetail: React.FC = () => {
   
   return (
     <Box>
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        mb: 3
-      }}>
-        <Button 
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/weightlists')}
-        >
-          Back to Weightlists
-        </Button>
-        
-        <Button 
-          startIcon={<EditIcon />}
-          variant="outlined"
-          component="a"
-          href={`/weightlists/${weightlist._id}/edit`}
-        >
-          Edit Weightlist
-        </Button>
-      </Box>
+      {!embedded && (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mb: 3
+        }}>
+          <Button 
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate('/weightlists')}
+          >
+            Back to Weightlists
+          </Button>
+          
+          <Button 
+            startIcon={<EditIcon />}
+            variant="outlined"
+            component="a"
+            href={`/weightlists/${weightlist._id}/edit`}
+          >
+            Edit Weightlist
+          </Button>
+        </Box>
+      )}
       
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
         <Typography variant="h4" gutterBottom>
@@ -267,7 +295,7 @@ const WeightlistDetail: React.FC = () => {
           </Box>
         </Box>
         
-        {!playbackStarted && (
+        {!embedded && !playbackStarted && (
           <Box sx={{ mt: 3, textAlign: 'center' }}>
             {playbackError && (
               <Alert severity="error" sx={{ mb: 2 }}>
@@ -287,7 +315,7 @@ const WeightlistDetail: React.FC = () => {
         )}
       </Paper>
       
-      {playbackStarted && (
+      {(playbackStarted || embedded) && (
         <>
           {/* <Player /> */}
           

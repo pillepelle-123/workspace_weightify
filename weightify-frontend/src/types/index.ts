@@ -62,6 +62,23 @@ export interface Weightlist {
   updatedAt: string;
 }
 
+// Weightflow types
+export interface WeightflowItem {
+  weightlistId: string;
+  weightlistName?: string;
+  timeLimitMinutes?: number;
+  order: number;
+}
+
+export interface Weightflow {
+  _id: string;
+  name: string;
+  userId: string;
+  weightlists: WeightflowItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface WeightlistTrack extends SpotifyTrack {
   isPlayed: boolean;
   playlistId: string;

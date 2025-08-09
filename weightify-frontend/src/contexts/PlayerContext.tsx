@@ -1,4 +1,4 @@
-import React, { createContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useReducer, useEffect, ReactNode, useRef } from 'react';
 import { PlaybackState, SpotifyTrack, Weightlist } from '../types';
 import PlaybackService from '../services/playback';
 import { getNextTrack, resetPlayback as resetPlaybackAPI } from '../api/weightlist';
@@ -11,6 +11,7 @@ interface PlayerContextType extends PlaybackState {
   nextTrack: () => Promise<void>;
   previousTrack: () => void;
   resetPlayback: () => Promise<void>;
+  resetPlayer: () => void;
   setCurrentWeightlist: (weightlist: Weightlist, sessionId: string) => void;
   setCrossfadeDuration: (duration: number) => void;
   setVolume: (volume: number) => void;
@@ -40,6 +41,7 @@ type PlayerAction =
   | { type: 'SET_CROSSFADE'; payload: number }
   | { type: 'MARK_PLAYED'; payload: string }
   | { type: 'RESET_PLAYED' }
+  | { type: 'RESET_PLAYER' }
   | { type: 'ADD_TO_HISTORY'; payload: SpotifyTrack }
   | { type: 'UPDATE_PROGRESS'; payload: number };
 
@@ -91,6 +93,11 @@ const playerReducer = (state: PlaybackState, action: PlayerAction): PlaybackStat
         playedTracks: [],
         trackHistory: []
       };
+    case 'RESET_PLAYER':
+      return {
+        ...initialState,
+        volume: state.volume
+      };
     case 'ADD_TO_HISTORY':
       return {
         ...state,
@@ -114,6 +121,7 @@ export const PlayerContext = createContext<PlayerContextType>({
   nextTrack: async () => {},
   previousTrack: () => {},
   resetPlayback: async () => {},
+  resetPlayer: () => {},
   setCurrentWeightlist: () => {},
   setCrossfadeDuration: () => {},
   setVolume: () => {},
@@ -139,12 +147,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   }, [accessToken]);
 
-  // Set up auto-advance callback
-  useEffect(() => {
-    playbackService.setOnEndCallback(() => {
-      nextTrack();
-    });
-  }, []);
+
 
   // Update progress every second
   useEffect(() => {
@@ -194,14 +197,38 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (!state.currentWeightlist || !state.sessionId) return;
     
     try {
-      const { track } = await getNextTrack(state.currentWeightlist._id, state.sessionId);
-      if (track) {
-        playTrack(track);
+      const weightflowId = sessionStorage.getItem('currentWeightflowId');
+      
+      if (weightflowId) {
+        const { weightflowApi } = await import('../api/weightflow');
+        const { track } = await weightflowApi.getNextTrack(weightflowId, state.sessionId);
+        if (track) {
+          playTrack(track);
+        }
+      } else {
+        const { track } = await getNextTrack(state.currentWeightlist._id, state.sessionId);
+        if (track) {
+          playTrack(track);
+        }
       }
     } catch (error) {
       console.error('Error getting next track:', error);
     }
   };
+
+  // Set up auto-advance callback
+  useEffect(() => {
+    let isAdvancing = false;
+    playbackService.setOnEndCallback(async () => {
+      if (isAdvancing) return;
+      isAdvancing = true;
+      try {
+        await nextTrack();
+      } finally {
+        setTimeout(() => { isAdvancing = false; }, 1000);
+      }
+    });
+  }, [nextTrack]);
 
   const previousTrack = () => {
     if (state.trackHistory.length > 0) {
@@ -250,6 +277,11 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     playbackService.seek(position);
   };
 
+  const resetPlayer = () => {
+    playbackService.stop();
+    dispatch({ type: 'RESET_PLAYER' });
+  };
+
   return (
     <PlayerContext.Provider value={{
       ...state,
@@ -259,6 +291,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       nextTrack,
       previousTrack,
       resetPlayback,
+      resetPlayer,
       setCurrentWeightlist,
       setCrossfadeDuration,
       setVolume,

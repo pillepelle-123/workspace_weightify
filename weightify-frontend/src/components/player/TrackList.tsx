@@ -18,7 +18,7 @@ import { WeightlistTrack } from '../../types';
 import { usePlayer } from '../../hooks/usePlayer';
 
 // Simple cache for track data
-const trackCache = new Map<string, WeightlistTrack[]>();
+export const trackCache = new Map<string, WeightlistTrack[]>();
 
 interface TrackListProps {
   weightlistId: string;
@@ -34,6 +34,7 @@ const TrackList: React.FC<TrackListProps> = ({ weightlistId, sessionId }) => {
   const { playedTracks, playTrack } = usePlayer();
   
   useEffect(() => {
+    
     const cacheKey = `${weightlistId}-${sessionId}`;
     
     // Check cache first

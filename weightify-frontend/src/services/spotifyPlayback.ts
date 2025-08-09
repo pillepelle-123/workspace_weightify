@@ -148,8 +148,18 @@ class SpotifyPlaybackService {
   }
 
   async stop() {
-    if (this.player) {
-      await this.player.pause();
+    if (this.player && this.deviceId) {
+      try {
+        // Stop playback by making an empty play request
+        await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${this.deviceId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${this.accessToken}`
+          },
+        });
+      } catch (error) {
+        console.error('Error stopping playback:', error);
+      }
     }
   }
 

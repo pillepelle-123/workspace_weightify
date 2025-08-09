@@ -13,6 +13,9 @@ import Callback from './components/auth/Callback';
 import WeightlistList from './components/weightlist/WeightlistList';
 import WeightlistForm from './components/weightlist/WeightlistForm';
 import WeightlistDetail from './components/weightlist/WeightlistDetail';
+import WeightflowList from './components/weightflow/WeightflowList';
+import WeightflowForm from './components/weightflow/WeightflowForm';
+import WeightflowDetail from './components/weightflow/WeightflowDetail';
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -115,6 +118,38 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <WeightlistDetail />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/weightflows" 
+            element={
+              <ProtectedRoute>
+                <WeightflowList />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/weightflows/new" 
+            element={
+              <ProtectedRoute>
+                <WeightflowForm />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/weightflows/:id/edit" 
+            element={
+              <ProtectedRoute>
+                <WeightflowForm />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/weightflows/:id" 
+            element={
+              <ProtectedRoute>
+                <WeightflowDetail />
               </ProtectedRoute>
             } 
           />
