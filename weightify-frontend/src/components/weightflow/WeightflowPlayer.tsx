@@ -61,7 +61,7 @@ const WeightflowPlayer: React.FC<WeightflowPlayerProps> = ({
           if (prev <= 1) {
             // Auto-switch to next weightlist
             if (currentWeightlistIndex < sortedWeightlists.length - 1) {
-              setCurrentWeightlistIndex(prev => prev + 1);
+              setCurrentWeightlistIndex(currentWeightlistIndex + 1);
             }
             return 0;
           }
@@ -72,6 +72,20 @@ const WeightflowPlayer: React.FC<WeightflowPlayerProps> = ({
       return () => clearInterval(timer);
     }
   }, [timeRemaining, isLastWeightlist, currentWeightlistIndex, sortedWeightlists.length]);
+
+  // Separate effect for updating player context when weightlist changes
+  useEffect(() => {
+    const currentWeightlist = sortedWeightlists[currentWeightlistIndex];
+    const weightlistData = weightlistDetails[currentWeightlist?.weightlistId];
+    
+    if (weightlistData && player.currentWeightlist?._id !== weightlistData._id) {
+      player.setCurrentWeightlist(weightlistData, sessionId);
+      
+      // Clear track cache for new weightlist
+      const { trackCache } = require('../player/TrackList');
+      trackCache.clear();
+    }
+  }, [currentWeightlistIndex, sortedWeightlists, weightlistDetails, player, sessionId]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -95,12 +109,13 @@ const WeightflowPlayer: React.FC<WeightflowPlayerProps> = ({
   };
 
   const handleSwitchConfirm = (immediate: boolean) => {
-    setCurrentWeightlistIndex(switchDialog.targetIndex);
+    const targetIndex = switchDialog.targetIndex;
+    setCurrentWeightlistIndex(targetIndex);
     setSwitchDialog({ open: false, targetIndex: 0 });
     
     // Reset timer for new weightlist
-    const newWeightlist = sortedWeightlists[switchDialog.targetIndex];
-    if (newWeightlist?.timeLimitMinutes && switchDialog.targetIndex < sortedWeightlists.length - 1) {
+    const newWeightlist = sortedWeightlists[targetIndex];
+    if (newWeightlist?.timeLimitMinutes && targetIndex < sortedWeightlists.length - 1) {
       setTimeLimitMinutes(newWeightlist.timeLimitMinutes);
       setTimeRemaining(newWeightlist.timeLimitMinutes * 60);
     }
@@ -173,6 +188,7 @@ const WeightflowPlayer: React.FC<WeightflowPlayerProps> = ({
               Track List
             </Typography>
             <TrackList 
+              key={`${currentWeightlist.weightlistId}-${currentWeightlistIndex}`}
               weightlistId={currentWeightlist.weightlistId} 
               sessionId={sessionId} 
             />

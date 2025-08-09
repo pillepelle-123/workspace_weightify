@@ -103,12 +103,24 @@ export const getNextTrack = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
     
-    const userId = 'placeholder-user-id';
+    // Get user ID from Spotify API
+    const userProfile = await spotifyService.getUserProfile(accessToken);
+    const userId = userProfile.id;
     
     // Get or create session
     let sessionId = req.query.sessionId as string;
     
     if (!sessionId) {
+      // Clean up any existing sessions for this user and weightlist
+      await Session.deleteMany({ userId, weightlistId: id });
+      
+      // Also clean up any tracks for this weightlist
+      const { Track } = await import('../models/track.model');
+      await Track.deleteMany({ weightlistId: id });
+      
+      // Small delay to ensure cleanup is complete
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       // Start a new playback session
       const { session, firstTrack } = await weightlistService.startPlaybackSession(
         id, 

@@ -171,6 +171,14 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (state.currentTrack) {
       dispatch({ type: 'ADD_TO_HISTORY', payload: state.currentTrack });
     }
+    
+    // Ensure player is initialized before playing
+    if (!playbackService.isInitialized()) {
+      console.log('Player not ready, retrying in 500ms...');
+      setTimeout(() => playTrack(track), 500);
+      return;
+    }
+    
     playbackService.play(track);
     dispatch({ type: 'SET_TRACK', payload: track });
     dispatch({ type: 'MARK_PLAYED', payload: track.id });
@@ -223,6 +231,30 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       if (isAdvancing) return;
       isAdvancing = true;
       try {
+        // Check if weightflow switch is pending
+        const switchPending = sessionStorage.getItem('weightflowSwitchPending');
+        const nextIndex = sessionStorage.getItem('weightflowNextIndex');
+        const weightflowId = sessionStorage.getItem('currentWeightflowId');
+        
+        if (switchPending === 'true' && nextIndex && weightflowId) {
+          // Clear flags
+          sessionStorage.removeItem('weightflowSwitchPending');
+          sessionStorage.removeItem('weightflowNextIndex');
+          
+          // Get weightflow data
+          const { weightflowApi } = await import('../api/weightflow');
+          const weightflow = await weightflowApi.getWeightflow(weightflowId);
+          const nextWeightlist = weightflow.weightlists.find(w => w.order === parseInt(nextIndex));
+          
+          if (nextWeightlist) {
+            // Reset player and navigate
+            playbackService.stop();
+            dispatch({ type: 'RESET_PLAYER' });
+            window.location.href = `/weightlists/${nextWeightlist.weightlistId}?weightflowId=${weightflowId}&weightflowIndex=${nextIndex}`;
+            return;
+          }
+        }
+        
         await nextTrack();
       } finally {
         setTimeout(() => { isAdvancing = false; }, 1000);

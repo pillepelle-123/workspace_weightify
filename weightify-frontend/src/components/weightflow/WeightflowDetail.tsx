@@ -54,23 +54,17 @@ const WeightflowDetail: React.FC = () => {
     if (!id) return;
     
     try {
-      // Reset player completely before starting weightflow
-      player.resetPlayer();
+      // Start with first weightlist
+      const firstWeightlist = sortedWeightlists[0];
       
-      // Clear track cache
-      trackCache.clear();
-      
-      const { sessionId: newSessionId, track } = await weightflowApi.startPlayback(id);
-      
-      // Set weightflow session data
+      // Store weightflow info in sessionStorage
       sessionStorage.setItem('currentWeightflowId', id);
-      sessionStorage.setItem('currentWeightflowSessionId', newSessionId);
+      sessionStorage.setItem('currentWeightflowIndex', '0');
       
-      setSessionId(newSessionId);
-      setIsPlaying(true);
-      setFirstTrack(track);
+      // Navigate to first weightlist with weightflow context
+      navigate(`/weightlists/${firstWeightlist.weightlistId}?weightflowId=${id}&weightflowIndex=0`);
     } catch (error) {
-      console.error('Error starting playback:', error);
+      console.error('Error starting weightflow:', error);
     }
   };
 

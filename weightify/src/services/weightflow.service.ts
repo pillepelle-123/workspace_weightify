@@ -2,6 +2,7 @@ import { Weightflow, IWeightflow } from '../models/weightflow.model';
 import { Weightlist } from '../models/weightlist.model';
 import { Session } from '../models/session.model';
 import weightlistService from './weightlist.service';
+import spotifyService from './spotify.service';
 import { v4 as uuidv4 } from 'uuid';
 
 class WeightflowService {
@@ -40,27 +41,40 @@ class WeightflowService {
       throw new Error('Weightflow not found or empty');
     }
 
-    const firstWeightlist = weightflow.weightlists.sort((a, b) => a.order - b.order)[0];
+    const sortedWeightlists = weightflow.weightlists.sort((a, b) => a.order - b.order);
+    const firstWeightlist = sortedWeightlists[0];
     
-    // Delete ALL existing sessions and tracks for this user to ensure complete reset
+    // Clean up existing sessions
     await Session.deleteMany({ userId });
-    const { Track } = await import('../models/track.model');
-    await Track.deleteMany({ weightlistId: firstWeightlist.weightlistId });
     
-    // Create session for the first weightlist
-    const { session, firstTrack } = await weightlistService.startPlaybackSession(
-      firstWeightlist.weightlistId,
+    // Create weightflow session
+    const sessionId = uuidv4();
+    const session = new Session({
+      sessionId,
+      weightlistId: firstWeightlist.weightlistId,
       userId,
+      startTime: new Date(),
+      lastActivityTime: new Date(),
+      weightflowId,
+      currentWeightlistIndex: 0,
+      timeLimitMinutes: firstWeightlist.timeLimitMinutes
+    });
+    await session.save();
+
+    // Load tracks for first weightlist
+    const weightlist = await Weightlist.findById(firstWeightlist.weightlistId);
+    if (!weightlist) throw new Error('Weightlist not found');
+    
+    await this.loadTracksForWeightlist(weightlist, sessionId, accessToken);
+    
+    // Get first track
+    const firstTrack = await weightlistService.getNextTrack(
+      firstWeightlist.weightlistId,
+      sessionId,
       accessToken
     );
 
-    // Update the session with weightflow info
-    session.weightflowId = weightflowId;
-    session.currentWeightlistIndex = 0;
-    session.timeLimitMinutes = firstWeightlist.timeLimitMinutes;
-    await session.save();
-
-    return { sessionId: session.sessionId, firstTrack, weightflow };
+    return { sessionId, firstTrack, weightflow };
   }
 
   async getNextWeightflowTrack(weightflowId: string, sessionId: string, accessToken: string) {
@@ -70,21 +84,43 @@ class WeightflowService {
     const weightflow = await Weightflow.findById(weightflowId);
     if (!weightflow) throw new Error('Weightflow not found');
 
-    // Check if time limit exceeded and switch to next weightlist
+    const sortedWeightlists = weightflow.weightlists.sort((a, b) => a.order - b.order);
+    const currentIndex = session.currentWeightlistIndex || 0;
+    const isLastWeightlist = currentIndex >= sortedWeightlists.length - 1;
+
+    // Check if marked to switch to next weightlist
     if (this.shouldSwitchWeightlist(session)) {
+      session.shouldSwitchToNext = false;
+      await session.save();
       return await this.switchToNextWeightlist(weightflow, session, accessToken);
     }
 
-    // Get next track from current weightlist using the weightflow session
-    const track = await weightlistService.getNextTrack(session.weightlistId, sessionId, accessToken);
-    return track;
+    // Check if time limit exceeded (but don't switch yet)
+    if (!isLastWeightlist && session.timeLimitMinutes && session.startTime) {
+      const elapsed = (Date.now() - session.startTime.getTime()) / (1000 * 60);
+      if (elapsed >= session.timeLimitMinutes) {
+        // Mark for switch after current track ends
+        session.shouldSwitchToNext = true;
+        await session.save();
+      }
+    }
+
+    // Try to get next track from current weightlist
+    try {
+      const track = await weightlistService.getNextTrack(session.weightlistId, sessionId, accessToken);
+      return track;
+    } catch (error: any) {
+      // If no tracks available and not last weightlist, switch immediately
+      if (!isLastWeightlist && error.message.includes('No more tracks available')) {
+        return await this.switchToNextWeightlist(weightflow, session, accessToken);
+      }
+      throw error;
+    }
   }
 
   private shouldSwitchWeightlist(session: any): boolean {
-    if (!session.timeLimitMinutes || !session.startTime) return false;
-    
-    const elapsed = (Date.now() - session.startTime.getTime()) / (1000 * 60);
-    return elapsed >= session.timeLimitMinutes;
+    // Only switch when explicitly marked, not based on time
+    return session.shouldSwitchToNext === true;
   }
 
   private async switchToNextWeightlist(weightflow: IWeightflow, session: any, accessToken: string) {
@@ -96,22 +132,68 @@ class WeightflowService {
     }
 
     const nextWeightlist = sortedWeightlists[nextIndex];
+    const isLastWeightlist = nextIndex >= sortedWeightlists.length - 1;
+    
+    // Clear tracks for this session
+    const { Track } = await import('../models/track.model');
+    await Track.deleteMany({ sessionId: session.sessionId });
     
     // Update session
     session.weightlistId = nextWeightlist.weightlistId;
     session.currentWeightlistIndex = nextIndex;
     session.startTime = new Date();
-    session.timeLimitMinutes = nextWeightlist.timeLimitMinutes;
+    session.timeLimitMinutes = isLastWeightlist ? null : nextWeightlist.timeLimitMinutes;
+    session.shouldSwitchToNext = false;
     await session.save();
 
-    // Start new weightlist session
-    const { firstTrack } = await weightlistService.startPlaybackSession(
+    // Load tracks for new weightlist
+    const weightlist = await Weightlist.findById(nextWeightlist.weightlistId);
+    if (!weightlist) throw new Error('Weightlist not found');
+    
+    await this.loadTracksForWeightlist(weightlist, session.sessionId, accessToken);
+    
+    // Get first track
+    const firstTrack = await weightlistService.getNextTrack(
       nextWeightlist.weightlistId,
-      weightflow.userId,
+      session.sessionId,
       accessToken
     );
 
     return firstTrack;
+  }
+  
+  private async loadTracksForWeightlist(
+    weightlist: any,
+    sessionId: string,
+    accessToken: string
+  ): Promise<void> {
+    for (const sourcePlaylist of weightlist.sourcePlaylists) {
+      const tracks = await spotifyService.getPlaylistTracks(
+        accessToken,
+        sourcePlaylist.playlistId
+      );
+      
+      const trackDocs = tracks.map((track: any) => ({
+        trackId: track.id,
+        name: track.name,
+        uri: track.uri,
+        artists: track.artists || [],
+        album: track.album || {},
+        artistNames: typeof track.artists === 'string' ? track.artists : (track.artists?.map((a: any) => a.name).join(', ') || 'Unknown Artist'),
+        albumName: typeof track.album === 'string' ? track.album : (track.album?.name || 'Unknown Album'),
+        albumCoverUrl: (typeof track.album === 'object' && track.album?.images?.[0]?.url) || '',
+        duration_ms: track.duration_ms || 0,
+        weightlistId: weightlist._id,
+        playlistId: sourcePlaylist.playlistId,
+        isPlayed: false,
+        sessionId
+      }));
+      
+      if (trackDocs.length > 0) {
+        const { Track } = await import('../models/track.model');
+        await Track.insertMany(trackDocs);
+      }
+    }
   }
 }
 

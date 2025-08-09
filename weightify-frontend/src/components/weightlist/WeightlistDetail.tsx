@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Box, 
   Typography, 
@@ -11,15 +11,24 @@ import {
   Chip,
   Tabs,
   Tab,
-  Alert
+  Alert,
+  Card,
+  CardContent,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
+import { Add, Remove } from '@mui/icons-material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import { useSingleWeightlist } from '../../hooks/useWeightlist';
 import { usePlayer } from '../../hooks/usePlayer';
 import { getNextTrack, getTracks } from '../../api/weightlist';
 import { getUserPlaylists } from '../../api/spotify';
-import { SpotifyPlaylist } from '../../types';
+import { weightflowApi } from '../../api/weightflow';
+import { SpotifyPlaylist, Weightflow } from '../../types';
 import TrackList from '../player/TrackList';
 import PlaybackControls from '../player/PlaybackControls';
 import Player from '../player/Player';
@@ -62,14 +71,24 @@ const WeightlistDetail: React.FC<WeightlistDetailProps> = ({
   sessionId: propSessionId 
 }) => {
   const { id: paramId } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const id = propWeightlistId || paramId;
   const navigate = useNavigate();
   const { weightlist, loading, error } = useSingleWeightlist(id || '');
   const player = usePlayer();
   
+  // Weightflow context
+  const weightflowId = searchParams.get('weightflowId');
+  const weightflowIndex = parseInt(searchParams.get('weightflowIndex') || '0');
+  const [weightflow, setWeightflow] = useState<Weightflow | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState(0);
+  const [switchDialog, setSwitchDialog] = useState<{ open: boolean; targetIndex: number }>({ open: false, targetIndex: 0 });
+  
   const [tabValue, setTabValue] = useState(0);
   const [sessionId, setSessionId] = useState<string | null>(propSessionId || null);
   const [playbackStarted, setPlaybackStarted] = useState(embedded && propSessionId ? true : false);
+  const [isStartingPlayback, setIsStartingPlayback] = useState(false);
 
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   
@@ -99,6 +118,43 @@ const WeightlistDetail: React.FC<WeightlistDetailProps> = ({
     }
   }, [sessionId, weightlist]);
   
+  // Load weightflow if in weightflow context
+  useEffect(() => {
+    if (weightflowId) {
+      weightflowApi.getWeightflow(weightflowId).then(setWeightflow);
+    }
+  }, [weightflowId]);
+
+  // Setup timer for weightflow
+  useEffect(() => {
+    if (weightflow && weightflowIndex < weightflow.weightlists.length - 1) {
+      const currentWeightlist = weightflow.weightlists.find(w => w.order === weightflowIndex);
+      if (currentWeightlist?.timeLimitMinutes) {
+        setTimeLimitMinutes(currentWeightlist.timeLimitMinutes);
+        setTimeRemaining(currentWeightlist.timeLimitMinutes * 60);
+      }
+    }
+  }, [weightflow, weightflowIndex]);
+
+  // Timer countdown
+  useEffect(() => {
+    if (timeRemaining > 0 && weightflow && weightflowIndex < weightflow.weightlists.length - 1) {
+      const timer = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 1) {
+            // Mark for switch after current track ends
+            sessionStorage.setItem('weightflowSwitchPending', 'true');
+            sessionStorage.setItem('weightflowNextIndex', String(weightflowIndex + 1));
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [timeRemaining, weightflow, weightflowIndex]);
+
   // Fetch playlist names
   useEffect(() => {
     const fetchPlaylistNames = async () => {
@@ -125,10 +181,47 @@ const WeightlistDetail: React.FC<WeightlistDetailProps> = ({
     setTabValue(newValue);
   };
   
-  const startPlayback = async () => {
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const adjustTimeLimit = (delta: number) => {
+    const newLimit = Math.max(1, Math.min(1440, timeLimitMinutes + delta));
+    setTimeLimitMinutes(newLimit);
+    
+    const ratio = newLimit / (timeLimitMinutes || 1);
+    setTimeRemaining(prev => Math.floor(prev * ratio));
+  };
+
+  const handleWeightlistClick = (index: number) => {
+    if (index !== weightflowIndex) {
+      setSwitchDialog({ open: true, targetIndex: index });
+    }
+  };
+
+  const handleSwitchConfirm = (immediate: boolean) => {
+    const targetWeightlist = weightflow?.weightlists.find(w => w.order === switchDialog.targetIndex);
+    if (targetWeightlist && weightflowId) {
+      if (immediate) {
+        // Reset player and navigate immediately
+        player.resetPlayer();
+        window.location.href = `/weightlists/${targetWeightlist.weightlistId}?weightflowId=${weightflowId}&weightflowIndex=${switchDialog.targetIndex}`;
+      } else {
+        // Mark for switch after current track ends
+        sessionStorage.setItem('weightflowSwitchPending', 'true');
+        sessionStorage.setItem('weightflowNextIndex', String(switchDialog.targetIndex));
+      }
+    }
+    setSwitchDialog({ open: false, targetIndex: 0 });
+  };
+
+  const startPlayback = async (retryCount = 0) => {
     if (!weightlist) return;
     
     try {
+      if (retryCount === 0) setIsStartingPlayback(true);
       setPlaybackError(null);
       
       // Get the first track and start a new session
@@ -138,16 +231,38 @@ const WeightlistDetail: React.FC<WeightlistDetailProps> = ({
       player.setCurrentWeightlist(weightlist, result.sessionId);
       player.playTrack(result.track);
       setPlaybackStarted(true);
+      setIsStartingPlayback(false);
     } catch (err) {
       console.error('Failed to start playback:', err);
-      setPlaybackError('Failed to start playback. Please try again.');
+      
+      // Retry up to 2 times with increasing delay
+      if (retryCount < 2) {
+        setTimeout(() => {
+          startPlayback(retryCount + 1);
+        }, (retryCount + 1) * 500);
+      } else {
+        setPlaybackError('Failed to start playback. Please try again.');
+        setIsStartingPlayback(false);
+      }
     }
   };
+
+  // Auto-start playback for weightflow context
+  useEffect(() => {
+    if (weightflowId && weightlist && !playbackStarted) {
+      setIsStartingPlayback(true);
+      // Delay to ensure player is initialized
+      const timer = setTimeout(() => {
+        startPlayback();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [weightflowId, weightlist, playbackStarted]);
   
-  if (loading) {
+  if (loading || (weightflowId && isStartingPlayback)) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <CircularProgress size={60} />
       </Box>
     );
   }
@@ -171,7 +286,57 @@ const WeightlistDetail: React.FC<WeightlistDetailProps> = ({
   
   return (
     <Box>
-      {!embedded && (
+      {/* Weightflow Progress Bar */}
+      {weightflow && (
+        <Card sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              {weightflow.name}
+            </Typography>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+              {weightflow.weightlists.sort((a, b) => a.order - b.order).map((item, index) => {
+                const isActive = index === weightflowIndex;
+                const isCompleted = index < weightflowIndex;
+                const weightlistName = playlistNames[item.weightlistId] || `Weightlist ${index + 1}`;
+                
+                return (
+                  <Chip
+                    key={item.weightlistId}
+                    label={weightlistName}
+                    color={isActive ? 'primary' : isCompleted ? 'success' : 'default'}
+                    variant={isActive ? 'filled' : 'outlined'}
+                    onClick={() => handleWeightlistClick(index)}
+                    sx={{ cursor: 'pointer' }}
+                  />
+                );
+              })}
+            </Box>
+
+            {weightflowIndex < weightflow.weightlists.length - 1 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Typography variant="body2">
+                  Time remaining: {formatTime(timeRemaining)}
+                </Typography>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <IconButton size="small" onClick={() => adjustTimeLimit(-1)}>
+                    <Remove />
+                  </IconButton>
+                  <Typography variant="body2">
+                    {timeLimitMinutes} min
+                  </Typography>
+                  <IconButton size="small" onClick={() => adjustTimeLimit(1)}>
+                    <Add />
+                  </IconButton>
+                </Box>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {!embedded && !weightflow && (
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -303,14 +468,18 @@ const WeightlistDetail: React.FC<WeightlistDetailProps> = ({
               </Alert>
             )}
             
-            <Button 
-              variant="contained" 
-              color="primary" 
-              size="large"
-              onClick={startPlayback}
-            >
-              Start Playback
-            </Button>
+            {isStartingPlayback ? (
+              <CircularProgress size={40} />
+            ) : (
+              <Button 
+                variant="contained" 
+                color="primary" 
+                size="large"
+                onClick={() => startPlayback()}
+              >
+                Start Playback
+              </Button>
+            )}
           </Box>
         )}
       </Paper>
@@ -342,6 +511,27 @@ const WeightlistDetail: React.FC<WeightlistDetailProps> = ({
           </Paper>
         </>
       )}
+
+      {/* Switch Confirmation Dialog */}
+      <Dialog open={switchDialog.open} onClose={() => setSwitchDialog({ open: false, targetIndex: 0 })}>
+        <DialogTitle>Switch Weightlist</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Do you want to switch to the selected weightlist?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSwitchDialog({ open: false, targetIndex: 0 })}>
+            Cancel
+          </Button>
+          <Button onClick={() => handleSwitchConfirm(false)}>
+            After Current Song
+          </Button>
+          <Button onClick={() => handleSwitchConfirm(true)} variant="contained">
+            Immediately
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

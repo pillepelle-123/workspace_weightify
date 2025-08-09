@@ -6,14 +6,14 @@ class PlaybackService {
   private crossfadeDuration: number = 0;
   private volume: number = 0.5;
   private onEndCallback: (() => void) | null = null;
-  private isInitialized: boolean = false;
+  private initialized: boolean = false;
 
   constructor() {
     this.spotifyPlayer = new SpotifyPlaybackService();
   }
 
   async initialize(accessToken: string): Promise<boolean> {
-    if (this.isInitialized) return true;
+    if (this.initialized) return true;
     
     try {
       await this.spotifyPlayer.initialize(accessToken);
@@ -22,7 +22,7 @@ class PlaybackService {
           this.onEndCallback();
         }
       });
-      this.isInitialized = true;
+      this.initialized = true;
       return true;
     } catch (error) {
       console.error('Failed to initialize Spotify player:', error);
@@ -45,7 +45,7 @@ class PlaybackService {
   }
 
   async play(track: SpotifyTrack) {
-    if (!this.isInitialized) {
+    if (!this.initialized) {
       console.error('Player not initialized');
       return;
     }
@@ -78,6 +78,10 @@ class PlaybackService {
 
   async seek(positionMs: number) {
     await this.spotifyPlayer.seek(positionMs);
+  }
+
+  isInitialized(): boolean {
+    return this.initialized;
   }
 
   disconnect() {

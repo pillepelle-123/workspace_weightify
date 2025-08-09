@@ -34,16 +34,9 @@ const TrackList: React.FC<TrackListProps> = ({ weightlistId, sessionId }) => {
   const { playedTracks, playTrack } = usePlayer();
   
   useEffect(() => {
-    
     const cacheKey = `${weightlistId}-${sessionId}`;
     
-    // Check cache first
-    if (trackCache.has(cacheKey)) {
-      setTracks(trackCache.get(cacheKey)!);
-      setLoading(false);
-      return;
-    }
-    
+    // Always fetch fresh data when weightlistId changes
     const fetchTracks = async () => {
       try {
         setLoading(true);
