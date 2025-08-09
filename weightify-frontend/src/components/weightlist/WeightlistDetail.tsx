@@ -20,7 +20,7 @@ import {
   DialogContent,
   DialogActions
 } from '@mui/material';
-import { Add, Remove } from '@mui/icons-material';
+import { Add, Remove, Pause, PlayArrow } from '@mui/icons-material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import { useSingleWeightlist } from '../../hooks/useWeightlist';
@@ -83,6 +83,7 @@ const WeightlistDetail: React.FC<WeightlistDetailProps> = ({
   const [weightflow, setWeightflow] = useState<Weightflow | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [timeLimitMinutes, setTimeLimitMinutes] = useState(0);
+  const [timerPaused, setTimerPaused] = useState(false);
   const [switchDialog, setSwitchDialog] = useState<{ open: boolean; targetIndex: number }>({ open: false, targetIndex: 0 });
   
   const [tabValue, setTabValue] = useState(0);
@@ -138,7 +139,7 @@ const WeightlistDetail: React.FC<WeightlistDetailProps> = ({
 
   // Timer countdown
   useEffect(() => {
-    if (timeRemaining > 0 && weightflow && weightflowIndex < weightflow.weightlists.length - 1) {
+    if (timeRemaining > 0 && weightflow && weightflowIndex < weightflow.weightlists.length - 1 && !timerPaused) {
       const timer = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev <= 1) {
@@ -153,7 +154,7 @@ const WeightlistDetail: React.FC<WeightlistDetailProps> = ({
 
       return () => clearInterval(timer);
     }
-  }, [timeRemaining, weightflow, weightflowIndex]);
+  }, [timeRemaining, weightflow, weightflowIndex, timerPaused]);
 
   // Fetch playlist names
   useEffect(() => {
@@ -286,6 +287,15 @@ const WeightlistDetail: React.FC<WeightlistDetailProps> = ({
   
   return (
     <Box>
+      <style>
+        {`
+          @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+          }
+        `}
+      </style>
+      
       {/* Weightflow Progress Bar */}
       {weightflow && (
         <Card sx={{ mb: 2 }}>
@@ -316,10 +326,16 @@ const WeightlistDetail: React.FC<WeightlistDetailProps> = ({
             {weightflowIndex < weightflow.weightlists.length - 1 && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Typography variant="body2">
-                  Time remaining: {formatTime(timeRemaining)}
+                  Time remaining: <span style={{ 
+                    color: timeRemaining === 0 ? 'red' : 'inherit',
+                    animation: timeRemaining === 0 ? 'blink 1s infinite' : 'none'
+                  }}>{formatTime(timeRemaining)}</span>
                 </Typography>
                 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <IconButton size="small" onClick={() => setTimerPaused(!timerPaused)}>
+                    {timerPaused ? <PlayArrow /> : <Pause />}
+                  </IconButton>
                   <IconButton size="small" onClick={() => adjustTimeLimit(-1)}>
                     <Remove />
                   </IconButton>
